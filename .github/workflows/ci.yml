@@ -1,0 +1,109 @@
+name: ATM CI
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '11'
+      - name: Run Checkstyle
+        run: mvn -B checkstyle:check
+        continue-on-error: ${{ github.event_name == 'push' }}
+
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '11'
+
+      - name: Check PR label
+        if: github.event_name == 'pull_request'
+        env:
+          TESTS: ${{ contains(github.event.pull_request.labels.*.name, 'phase:tests') }}
+          FIX: ${{ contains(github.event.pull_request.labels.*.name, 'phase:fix') }}
+        run: |
+          if [ "$TESTS" = "$FIX" ]; then
+            echo '::error::Add exactly one label: phase:tests or phase:fix.'
+            exit 1
+          fi
+
+      - name: Run tests (allow failures)
+        if: github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'phase:tests')
+        run: mvn -B -Dmaven.test.failure.ignore=true test
+        continue-on-error: ${{ github.event_name == 'push' }}
+
+      - name: Run tests (must pass)
+        if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'phase:fix')
+        run: mvn -B test
+
+      - name: Prepare PR report
+        if: always() && github.event_name == 'pull_request'
+        continue-on-error: true
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          lines = ['### JUnit results', '', '| Test | Status |', '| --- | --- |']
+          count = 0
+          for file in sorted(Path('target/surefire-reports').glob('TEST-*.xml')):
+              for case in ET.parse(file).iter('testcase'):
+                  count += 1
+                  name = f"{case.get('classname', '')}.{case.get('name', '')}".replace('|', '\\|')
+                  status = ('Failed' if case.find('failure') is not None or
+                            case.find('error') is not None else
+                            'Skipped' if case.find('skipped') is not None else 'Passed')
+                  lines.append(f'| `{name}` | {status} |')
+          if not count:
+              lines.append('| No test results found | — |')
+
+          lines += ['', '### JaCoCo coverage', '']
+          report = Path('target/site/jacoco/jacoco.xml')
+          if report.exists():
+              counters = {c.get('type'): c for c in ET.parse(report).getroot().findall('counter')}
+              lines += ['| Type | Coverage |', '| --- | ---: |']
+              for kind in ('LINE', 'BRANCH', 'METHOD'):
+                  if kind in counters:
+                      covered = int(counters[kind].get('covered', 0))
+                      missed = int(counters[kind].get('missed', 0))
+                      total = covered + missed
+                      percent = f'{covered / total:.1%}' if total else 'N/A'
+                      lines.append(f'| {kind.title()} | {percent} |')
+          else:
+              lines.append('No coverage report found.')
+
+          Path('ci-report.md').write_text('\n'.join(lines) + '\n')
+          PY
+
+      - name: Post PR report
+        if: always() && github.event_name == 'pull_request'
+        continue-on-error: true
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require('fs');
+            if (fs.existsSync('ci-report.md')) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: fs.readFileSync('ci-report.md', 'utf8')
+              });
+            }
