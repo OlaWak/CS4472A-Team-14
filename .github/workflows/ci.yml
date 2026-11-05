@@ -4,7 +4,7 @@ on:
   push:
     branches: [dev]
   pull_request:
-    branches: [main]
+    branches: [dev, main]
     types: [opened, synchronize, reopened, labeled, unlabeled]
 
 permissions:
@@ -34,7 +34,7 @@ jobs:
           java-version: '11'
 
       - name: Check PR label
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main'
         env:
           TESTS: ${{ contains(github.event.pull_request.labels.*.name, 'phase:tests') }}
           FIX: ${{ contains(github.event.pull_request.labels.*.name, 'phase:fix') }}
@@ -45,12 +45,12 @@ jobs:
           fi
 
       - name: Run tests (allow failures)
-        if: github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'phase:tests')
+        if: github.event_name == 'push' || (github.event_name == 'pull_request' && (github.event.pull_request.base.ref == 'dev' || contains(github.event.pull_request.labels.*.name, 'phase:tests')))
         run: mvn -B -Dmaven.test.failure.ignore=true test
         continue-on-error: ${{ github.event_name == 'push' }}
 
       - name: Run tests (must pass)
-        if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'phase:fix')
+        if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main' && contains(github.event.pull_request.labels.*.name, 'phase:fix')
         run: mvn -B test
 
       - name: Prepare PR report
