@@ -149,6 +149,8 @@ public class SessionTest {
 
 	@Test
 	public void rejectsDispensableAmountImmediatelyAboveDailyLimit() {
+		// The assignment calls $1,000 the upper boundary. Treat an over-limit
+		// amount as invalid input; this isolated Session test cannot configure an account.
 		assertThrows(InvalidAmountException.class,
 				() -> session.setAmount(DAILY_LIMIT + 20));
 	}

@@ -16,6 +16,8 @@ The lower-bound cases are `$19`, `$20`, and `$21`. Additional robust invalid and
 
 The assignment specifies an account with `$5,000` available and a `$1,000` daily limit. The current code has no daily-limit field or API for configuring that account. The withdrawal tests construct an `ATMWithdrawal` and call `Session.setAmount()` with the assignment’s limit as the expected boundary; the session state is stubbed so no bank transaction is performed. These results therefore cover session amount validation, but do not represent a withdrawal against an account configured with the required balance and limit.
 
+For the `$1,020` case, we interpret the specified `$1,000` upper boundary to mean that an over-limit withdrawal amount should be rejected with `InvalidAmountException`, even if it can be dispensed in `$20` and `$50` bills. The handout explicitly associates `InvalidAmountException` with invalid amounts that cannot be dispensed, but does not state the exception or outcome for a cash-dispensable amount above the daily limit. This expected outcome is therefore an assumption for team or TA confirmation. Because the session is tested with a no-op state, the test checks the amount accepted by `Session.setAmount()` and cannot establish the outcome of a bank transaction.
+
 ### 2. Test cases
 
 #### PIN format cases
