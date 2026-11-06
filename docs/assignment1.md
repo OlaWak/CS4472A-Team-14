@@ -62,3 +62,97 @@ Here is the table for each test:
 | r15NonStudentAt100FromHighToLow | FeesCalculator.java, calculateTransferFee, L132-L133 | The percentage is wrong: 5.0 instead of 0.5. |
 | r16NonStudentAt100BothBalancesHigh | FeesCalculator.java, calculateTransferFee, L134-L135 | The percentage `0.055` is wrong: 5.5 instead of 0.25. |
 
+## ATM Session (`atm.session.Session`) test cases and results
+
+**Contributor:** Sonia Sharma
+
+### 1. Process and assumptions
+
+The ATM Session tests use Robust Worst Case Boundary Value Analysis under the single-fault assumption: one input characteristic is varied at a time while the others use nominal values. The model has three characteristics: PIN length, one PIN digit, and withdrawal amount. The nominal inputs are PIN `24681` and withdrawal `$550`.
+
+For weak robust, one-factor-at-a-time BVA, the usual `6n + 1` count is one nominal combination plus six boundary values per input characteristic. PIN length is an exact-length condition (`min = max = 5`), so it has only two distinct non-nominal values: 4 and 6 characters. A PIN digit ranges from `0` through `9`; its six robust boundary values are `/`, `0`, `1`, `8`, `9`, and `:` with the other positions held at their nominal values from `24681`. The withdrawal amount is an integer input with lower and upper bounds `$20` and `$1,000`; its six robust boundary values are `$19`, `$20`, `$21`, `$999`, `$1,000`, and `$1,001`. `$550` is the nominal amount: it is between the limits, can be dispensed as eleven `$50` bills, and is not divisible by `$20`. The conceptual core set is `1 + 2 + 6 + 6 = 15` BVA combinations: one shared nominal baseline, two non-nominal PIN-length values, six PIN-digit boundary values, and six withdrawal-amount boundary values. In the implementation, the nominal assertions are kept observable in their respective validation paths: `pinLengthBoundaries` includes the nominal five-digit PIN and the amount cases include the nominal `$550`. This results in 16 executable core invocations (3 PIN-length + 6 PIN-digit + 7 amount cases), because the nominal PIN and amount are asserted separately. The seven position-specific PIN checks are supplemental, bringing the class total to 23 invocations.
+
+The console ATM dispenses `$20` and `$50` bills. The core BVA uses the adjacent integer values around each numeric boundary, whether or not those adjacent values are dispensable. Thus `$19` and `$21` are outside the minimum boundary, while `$999` and `$1,001` are immediately below and above the daily limit. Both upper-boundary adjacent values also fail the denomination rule, so their expected exceptions do not independently demonstrate daily-limit enforcement. This core set does not include a supplemental bill-dispensable over-limit probe such as `$1,020`.
+
+PIN digit cases also place invalid characters in positions two through five and valid boundary digits in the fifth position, rather than assuming only the first position matters.
+
+PIN format is checked through `ATM.checkPin()`, which invokes `FormatChecker.checkPinFormat()` before calling `Session.addPin()`. `Session.addPin()` stores the PIN and advances the state; it does not validate the format. The helper uses the format-valid test card `4111111111111111` to reach the PIN prompt, and credentials are mocked so no bank lookup is needed. The PIN cases use JUnit parameterized tests; each method-source row has a descriptive case ID listed in the test-case tables. In the supplied CI report, parameterized cases are displayed by method name and invocation index rather than by those case IDs; the result table below maps them by source-row order. Amount tests construct a `Session` with an `ATMWithdrawal`, select a Chequing account, and use a no-op state so `Session.setAmount()` validation can be tested without performing a bank transaction. This keeps the amount cases independent of the PIN-format fault, but it does not exercise transaction processing or account balance handling.
+
+`SessionTest` defines a test-only `SimulatedAccount` with `$5,000` available and a `$1,000` daily limit. The maximum withdrawal boundary is calculated as `min($5,000, $1,000) = $1,000`, and the tests derive their upper-boundary inputs from that value. This model is not attached to `Session` or stored in the bank database; amount tests still use a no-op state. `DBHandler.setBalance()` can set a stored balance, but these tests do not call it. The application has no daily-limit field or setup path, so the fixture represents the required values for boundary selection but does not exercise an account with them. The database seed PIN is `5555` (four digits); PIN tests use mocked credentials and test PINs so they can check the assignment's five-digit format independently. Instructor guidance is still needed on the missing production daily-limit support.
+
+No production code was changed. The core set omits additional amount probes beyond the nominal and robust boundary values.
+
+### 2. Test cases
+
+#### PIN format cases
+
+| Test case | Input | Expected result |
+|---|---|---|
+| `rejectsPinOneDigitBelowRequiredLength` | `2468` | Throw `InvalidPinFormatException` |
+| `acceptsPinAtRequiredLength` | `24681` | Accept |
+| `rejectsPinOneDigitAboveRequiredLength` | `246810` | Throw `InvalidPinFormatException` |
+| `acceptsPinWithDigitAtLowerBoundary` | `04681` | Accept |
+| `acceptsPinWithDigitAdjacentToLowerBoundary` | `14681` | Accept |
+| `acceptsPinWithDigitAdjacentToUpperBoundary` | `84681` | Accept |
+| `acceptsPinWithDigitAtUpperBoundary` | `94681` | Accept |
+| `rejectsCharacterImmediatelyBelowDigitRange` | `/4681` | Throw `InvalidPinFormatException` |
+| `rejectsCharacterImmediatelyAboveDigitRange` | `:4681` | Throw `InvalidPinFormatException` |
+| `rejectsNonDigitInSecondPinPosition` | `2/681` | Throw `InvalidPinFormatException` |
+| `rejectsNonDigitInThirdPinPosition` | `24:81` | Throw `InvalidPinFormatException` |
+| `rejectsNonDigitInFourthPinPosition` | `246/1` | Throw `InvalidPinFormatException` |
+| `rejectsCharacterImmediatelyBelowDigitRangeAtFifthPosition` | `2468/` | Throw `InvalidPinFormatException` |
+| `rejectsCharacterImmediatelyAboveDigitRangeAtFifthPosition` | `2468:` | Throw `InvalidPinFormatException` |
+| `acceptsPinWithZeroInFifthPosition` | `24680` | Accept |
+| `acceptsPinWithNineInFifthPosition` | `24689` | Accept |
+
+#### Withdrawal amount cases
+
+| Test case | Amount | Expected result |
+|---|---:|---|
+| `rejectsAmountOneDollarBelowMinimumDispensableAmount` | `$19` | Throw `InvalidAmountException` |
+| `acceptsMinimumDispensableAmount` | `$20` | Accept |
+| `rejectsAmountOneDollarAboveMinimumDispensableAmount` | `$21` | Throw `InvalidAmountException` |
+| `acceptsNominalWithdrawalAmount` | `$550` | Accept |
+| `rejectsAmountOneDollarBelowDailyLimit` | `$999` | Throw `InvalidAmountException` |
+| `acceptsAmountAtDailyLimit` | `$1,000` | Accept |
+| `rejectsAmountOneDollarAboveDailyLimit` | `$1,001` | Throw `InvalidAmountException` |
+
+#### Test results
+
+The latest CI output provided for this branch reports 23 `SessionTest` invocations: 15 passed and 8 failed. The parameterized-test rows appear in CI by method name and invocation index; the descriptive case IDs below map to those invocations in the order supplied by each method source. Across all rows shown in that CI output, there are 42 results: 18 passed and 24 failed. The older summary of 49 total tests and 30 Session tests refers to a superseded version and does not match the displayed CI rows. The displayed JaCoCo coverage is 12.0% line, 18.1% branch, and 25.8% method.
+
+| Test case | Observed result | Status |
+|---|---|---|
+| `rejectsPinOneDigitBelowRequiredLength` | `pinLengthBoundaries` invocation [1] | Failed |
+| `acceptsPinAtRequiredLength` | `pinLengthBoundaries` invocation [2] | Failed |
+| `rejectsPinOneDigitAboveRequiredLength` | `pinLengthBoundaries` invocation [3] | Passed |
+| `rejectsCharacterImmediatelyBelowDigitRange` | `pinDigitBoundaries` invocation [1] | Passed |
+| `acceptsPinWithDigitAtLowerBoundary` | `pinDigitBoundaries` invocation [2] | Failed |
+| `acceptsPinWithDigitAdjacentToLowerBoundary` | `pinDigitBoundaries` invocation [3] | Failed |
+| `acceptsPinWithDigitAdjacentToUpperBoundary` | `pinDigitBoundaries` invocation [4] | Failed |
+| `acceptsPinWithDigitAtUpperBoundary` | `pinDigitBoundaries` invocation [5] | Failed |
+| `rejectsCharacterImmediatelyAboveDigitRange` | `pinDigitBoundaries` invocation [6] | Passed |
+| `rejectsNonDigitInSecondPinPosition` | `pinPositionChecks` invocation [1] | Passed |
+| `rejectsNonDigitInThirdPinPosition` | `pinPositionChecks` invocation [2] | Passed |
+| `rejectsNonDigitInFourthPinPosition` | `pinPositionChecks` invocation [3] | Passed |
+| `rejectsCharacterImmediatelyBelowDigitRangeAtFifthPosition` | `pinPositionChecks` invocation [4] | Passed |
+| `rejectsCharacterImmediatelyAboveDigitRangeAtFifthPosition` | `pinPositionChecks` invocation [5] | Passed |
+| `acceptsPinWithZeroInFifthPosition` | `pinPositionChecks` invocation [6] | Failed |
+| `acceptsPinWithNineInFifthPosition` | `pinPositionChecks` invocation [7] | Failed |
+| `rejectsAmountOneDollarBelowMinimumDispensableAmount` | `SessionTest` | Passed |
+| `acceptsMinimumDispensableAmount` | `SessionTest` | Passed |
+| `rejectsAmountOneDollarAboveMinimumDispensableAmount` | `SessionTest` | Passed |
+| `acceptsNominalWithdrawalAmount` | `SessionTest` | Passed |
+| `rejectsAmountOneDollarBelowDailyLimit` | `SessionTest` | Passed |
+| `acceptsAmountAtDailyLimit` | `SessionTest` | Passed |
+| `rejectsAmountOneDollarAboveDailyLimit` | `SessionTest` | Passed |
+
+#### Fault localization
+
+The current CI failures are all PIN cases. The parameterized invocation indexes below correspond to the ordered method-source rows in `SessionTest`; invalid-character cases pass because the incorrect length check also throws the expected exception, so those passes do not demonstrate correct digit validation. The current amount cases all pass, but the adjacent upper-limit values are not dispensable and therefore do not isolate daily-limit enforcement. The previous observed amount failures (`$0`, `-$20`, `$60`, and `$1,020`) came from probes removed from the core set and are not current failures.
+
+| Failing test case(s) | Suspected fault (file, method, condition) | One-sentence justification |
+|---|---|---|
+| `rejectsPinOneDigitBelowRequiredLength` (`pinLengthBoundaries` [1]) | `src/main/java/atm/utils/FormatChecker.java`, `checkPinFormat()`, line 33: `pin.length == 4` | The four-character input is accepted by the implementation even though the specification requires five digits. |
+| `acceptsPinAtRequiredLength` (`pinLengthBoundaries` [2]); valid digit cases `pinDigitBoundaries` [2]–[5] and `pinPositionChecks` [6]–[7] | `src/main/java/atm/utils/FormatChecker.java`, `checkPinFormat()`, line 33: `pin.length == 4` | The implementation rejects five-character PINs before it can validate their digits, causing each expected-valid PIN to fail. |
+
