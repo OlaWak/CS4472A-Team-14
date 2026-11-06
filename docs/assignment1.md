@@ -119,40 +119,40 @@ No production code was changed. The core set omits additional amount probes beyo
 
 #### Test results
 
-The previous CI run covered a superseded 30-case version of this class and reported 49 tests overall (21 passed, 28 failed), including 30 ATM Session cases (18 passed, 12 failed). It also reported project-wide JaCoCo coverage of 12.0% line, 18.1% branch, and 25.8% method. Those figures are historical, not results for the current 23-case core set. The current set has not been rerun; update this table from the next local or PR CI run.
+The latest CI output provided for this branch reports 23 `SessionTest` invocations: 15 passed and 8 failed. The parameterized-test rows appear in CI by method name and invocation index; the descriptive case IDs below map to those invocations in the order supplied by each method source. Across all rows shown in that CI output, there are 42 results: 18 passed and 24 failed. The older summary of 49 total tests and 30 Session tests refers to a superseded version and does not match the displayed CI rows. The displayed JaCoCo coverage is 12.0% line, 18.1% branch, and 25.8% method.
 
 | Test case | Observed result | Status |
 |---|---|---|
-| `rejectsPinOneDigitBelowRequiredLength` | Pending rerun | Pending |
-| `acceptsPinAtRequiredLength` | Pending rerun | Pending |
-| `rejectsPinOneDigitAboveRequiredLength` | Pending rerun | Pending |
-| `rejectsCharacterImmediatelyBelowDigitRange` | Pending rerun | Pending |
-| `acceptsPinWithDigitAtLowerBoundary` | Pending rerun | Pending |
-| `acceptsPinWithDigitAdjacentToLowerBoundary` | Pending rerun | Pending |
-| `acceptsPinWithDigitAdjacentToUpperBoundary` | Pending rerun | Pending |
-| `acceptsPinWithDigitAtUpperBoundary` | Pending rerun | Pending |
-| `rejectsCharacterImmediatelyAboveDigitRange` | Pending rerun | Pending |
-| `rejectsNonDigitInSecondPinPosition` | Pending rerun | Pending |
-| `rejectsNonDigitInThirdPinPosition` | Pending rerun | Pending |
-| `rejectsNonDigitInFourthPinPosition` | Pending rerun | Pending |
-| `rejectsCharacterImmediatelyBelowDigitRangeAtFifthPosition` | Pending rerun | Pending |
-| `rejectsCharacterImmediatelyAboveDigitRangeAtFifthPosition` | Pending rerun | Pending |
-| `acceptsPinWithZeroInFifthPosition` | Pending rerun | Pending |
-| `acceptsPinWithNineInFifthPosition` | Pending rerun | Pending |
-| `rejectsAmountOneDollarBelowMinimumDispensableAmount` | Pending rerun | Pending |
-| `acceptsMinimumDispensableAmount` | Pending rerun | Pending |
-| `rejectsAmountOneDollarAboveMinimumDispensableAmount` | Pending rerun | Pending |
-| `acceptsNominalWithdrawalAmount` | Pending rerun | Pending |
-| `rejectsAmountOneDollarBelowDailyLimit` | Pending rerun | Pending |
-| `acceptsAmountAtDailyLimit` | Pending rerun | Pending |
-| `rejectsAmountOneDollarAboveDailyLimit` | Pending rerun | Pending |
+| `rejectsPinOneDigitBelowRequiredLength` | `pinLengthBoundaries` invocation [1] | Failed |
+| `acceptsPinAtRequiredLength` | `pinLengthBoundaries` invocation [2] | Failed |
+| `rejectsPinOneDigitAboveRequiredLength` | `pinLengthBoundaries` invocation [3] | Passed |
+| `rejectsCharacterImmediatelyBelowDigitRange` | `pinDigitBoundaries` invocation [1] | Passed |
+| `acceptsPinWithDigitAtLowerBoundary` | `pinDigitBoundaries` invocation [2] | Failed |
+| `acceptsPinWithDigitAdjacentToLowerBoundary` | `pinDigitBoundaries` invocation [3] | Failed |
+| `acceptsPinWithDigitAdjacentToUpperBoundary` | `pinDigitBoundaries` invocation [4] | Failed |
+| `acceptsPinWithDigitAtUpperBoundary` | `pinDigitBoundaries` invocation [5] | Failed |
+| `rejectsCharacterImmediatelyAboveDigitRange` | `pinDigitBoundaries` invocation [6] | Passed |
+| `rejectsNonDigitInSecondPinPosition` | `pinPositionChecks` invocation [1] | Passed |
+| `rejectsNonDigitInThirdPinPosition` | `pinPositionChecks` invocation [2] | Passed |
+| `rejectsNonDigitInFourthPinPosition` | `pinPositionChecks` invocation [3] | Passed |
+| `rejectsCharacterImmediatelyBelowDigitRangeAtFifthPosition` | `pinPositionChecks` invocation [4] | Passed |
+| `rejectsCharacterImmediatelyAboveDigitRangeAtFifthPosition` | `pinPositionChecks` invocation [5] | Passed |
+| `acceptsPinWithZeroInFifthPosition` | `pinPositionChecks` invocation [6] | Failed |
+| `acceptsPinWithNineInFifthPosition` | `pinPositionChecks` invocation [7] | Failed |
+| `rejectsAmountOneDollarBelowMinimumDispensableAmount` | `SessionTest` | Passed |
+| `acceptsMinimumDispensableAmount` | `SessionTest` | Passed |
+| `rejectsAmountOneDollarAboveMinimumDispensableAmount` | `SessionTest` | Passed |
+| `acceptsNominalWithdrawalAmount` | `SessionTest` | Passed |
+| `rejectsAmountOneDollarBelowDailyLimit` | `SessionTest` | Passed |
+| `acceptsAmountAtDailyLimit` | `SessionTest` | Passed |
+| `rejectsAmountOneDollarAboveDailyLimit` | `SessionTest` | Passed |
 
 #### Fault localization
 
-Refresh this table from the current test run before submitting the results. The previous observed amount failures (`$0`, `-$20`, `$60`, and `$1,020`) came from probes removed from the core set and are no longer current cases.
+The current CI failures are all PIN cases. The parameterized invocation indexes below correspond to the ordered method-source rows in `SessionTest`; invalid-character cases pass because the incorrect length check also throws the expected exception, so those passes do not demonstrate correct digit validation. The current amount cases all pass, but the adjacent upper-limit values are not dispensable and therefore do not isolate daily-limit enforcement. The previous observed amount failures (`$0`, `-$20`, `$60`, and `$1,020`) came from probes removed from the core set and are not current failures.
 
 | Failing test case(s) | Suspected fault (file, method, condition) | One-sentence justification |
 |---|---|---|
-| PIN cases expected to fail; confirm exact parameterized case IDs after rerun | `src/main/java/atm/utils/FormatChecker.java`, `checkPinFormat()`, line 33: `pin.length == 4` | The implementation accepts four-character PINs and rejects five-character PINs; valid-digit cases are rejected by the length check before digit validation. |
-| Pending rerun | Amount-boundary behavior in `src/main/java/atm/utils/CashValidator.java` and `src/main/java/atm/session/Session.java` | The `$999` and `$1,001` values are also not bill-dispensable, so their exceptions may be caused by cash validation and do not isolate the daily-limit behavior. |
+| `rejectsPinOneDigitBelowRequiredLength` (`pinLengthBoundaries` [1]) | `src/main/java/atm/utils/FormatChecker.java`, `checkPinFormat()`, line 33: `pin.length == 4` | The four-character input is accepted by the implementation even though the specification requires five digits. |
+| `acceptsPinAtRequiredLength` (`pinLengthBoundaries` [2]); valid digit cases `pinDigitBoundaries` [2]–[5] and `pinPositionChecks` [6]–[7] | `src/main/java/atm/utils/FormatChecker.java`, `checkPinFormat()`, line 33: `pin.length == 4` | The implementation rejects five-character PINs before it can validate their digits, causing each expected-valid PIN to fail. |
 
