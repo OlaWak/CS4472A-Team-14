@@ -14,8 +14,12 @@ import atm.ui.panels.MainPanel;
 import atm.utils.CredentialsCheck;
 import atm.utils.FormatChecker;
 import bank.transactions.utils.AccountType;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mockito;
 
 /**
@@ -31,6 +35,8 @@ public class SessionTest {
 	private static final String VALID_FORMAT_CARD_NUMBER = "4111111111111111";
 	// Five digits are required; this nominal value is a test choice, not a spec value.
 	private static final String NOMINAL_VALID_PIN = "24681";
+	// Middle-of-range nominal amount: 11 x $50, not divisible by $20.
+	private static final int NOMINAL_WITHDRAWAL_AMOUNT = 550;
 	// Assignment account values used to calculate the withdrawal boundary.
 	private static final int SIMULATED_AVAILABLE_BALANCE = 5000;
 	private static final int SIMULATED_DAILY_LIMIT = 1000;
@@ -66,124 +72,86 @@ public class SessionTest {
 
 	/*
 	 * PIN-length boundaries: the specification requires exactly five digits.
-	 * Four and six characters are the nearest invalid lengths; NOMINAL_VALID_PIN is
-	 * the valid baseline. These tests use numeric characters so length is the
-	 * only input characteristic being changed.
+	 * Four and six characters are the nearest invalid lengths; the nominal PIN
+	 * is the valid baseline. Case identifiers are parameterized display names so
+	 * each input and result remains identifiable in JUnit reports.
 	 */
-	@Test
-	public void rejectsPinOneDigitBelowRequiredLength() throws Exception {
-		assertThrows(InvalidPinFormatException.class,
-				() -> createAtmAtPinPrompt().checkPin(new char[] {'2', '4', '6', '8'}));
+	@ParameterizedTest(name = "{0}")
+	@MethodSource("pinLengthCases")
+	public void pinLengthBoundaries(String caseId, String pin, boolean expectedValid)
+			throws InvalidCardNumberException {
+		assertPinResult(pin, expectedValid);
 	}
 
-	@Test
-	public void acceptsPinAtRequiredLength() throws Exception {
-		assertDoesNotThrow(() -> createAtmAtPinPrompt().checkPin(NOMINAL_VALID_PIN.toCharArray()));
-	}
-
-	@Test
-	public void rejectsPinOneDigitAboveRequiredLength() throws Exception {
-		assertThrows(InvalidPinFormatException.class,
-				() -> createAtmAtPinPrompt().checkPin(new char[] {'2', '4', '6', '8', '1', '0'}));
+	private static Stream<Arguments> pinLengthCases() {
+		return Stream.of(
+				Arguments.of("rejectsPinOneDigitBelowRequiredLength", "2468", false),
+				Arguments.of("acceptsPinAtRequiredLength", NOMINAL_VALID_PIN, true),
+				Arguments.of("rejectsPinOneDigitAboveRequiredLength", "246810", false));
 	}
 
 	/*
-	 * PIN-digit robust boundaries: hold the PIN length at five and keep the
-	 * other digits nominal. The valid range is '0' through '9'; '/' and ':' are
-	 * the adjacent ASCII characters just outside it. Values 0, 1, 8, and 9 cover
-	 * both valid endpoints and the nearest valid values inside those endpoints.
+	 * PIN-digit boundaries: keep the length at five and vary the first digit.
+	 * The valid range is '0' through '9'; '/' and ':' are the adjacent ASCII
+	 * characters outside it. The other PIN digits remain nominal.
 	 */
-	@Test
-	public void acceptsPinWithDigitAtLowerBoundary() throws Exception {
-		assertDoesNotThrow(() -> createAtmAtPinPrompt()
-				.checkPin(new char[] {'0', '4', '6', '8', '1'}));
+	@ParameterizedTest(name = "{0}")
+	@MethodSource("pinDigitBoundaryCases")
+	public void pinDigitBoundaries(String caseId, String pin, boolean expectedValid)
+			throws InvalidCardNumberException {
+		assertPinResult(pin, expectedValid);
 	}
 
-	@Test
-	public void acceptsPinWithDigitAdjacentToLowerBoundary() throws Exception {
-		assertDoesNotThrow(() -> createAtmAtPinPrompt()
-				.checkPin(new char[] {'1', '4', '6', '8', '1'}));
-	}
-
-	@Test
-	public void acceptsPinWithDigitAdjacentToUpperBoundary() throws Exception {
-		assertDoesNotThrow(() -> createAtmAtPinPrompt()
-				.checkPin(new char[] {'8', '4', '6', '8', '1'}));
-	}
-
-	@Test
-	public void acceptsPinWithDigitAtUpperBoundary() throws Exception {
-		assertDoesNotThrow(() -> createAtmAtPinPrompt()
-				.checkPin(new char[] {'9', '4', '6', '8', '1'}));
-	}
-
-	@Test
-	public void rejectsCharacterImmediatelyBelowDigitRange() throws Exception {
-		assertThrows(InvalidPinFormatException.class,
-				() -> createAtmAtPinPrompt().checkPin(new char[] {'/', '4', '6', '8', '1'}));
-	}
-
-	@Test
-	public void rejectsCharacterImmediatelyAboveDigitRange() throws Exception {
-		assertThrows(InvalidPinFormatException.class,
-				() -> createAtmAtPinPrompt().checkPin(new char[] {':', '4', '6', '8', '1'}));
-	}
-
-	@Test
-	public void rejectsNonDigitInSecondPinPosition() throws Exception {
-		assertThrows(InvalidPinFormatException.class,
-				() -> createAtmAtPinPrompt().checkPin(new char[] {'2', '/', '6', '8', '1'}));
-	}
-
-	@Test
-	public void rejectsNonDigitInThirdPinPosition() throws Exception {
-		assertThrows(InvalidPinFormatException.class,
-				() -> createAtmAtPinPrompt().checkPin(new char[] {'2', '4', ':', '8', '1'}));
-	}
-
-	@Test
-	public void rejectsNonDigitInFourthPinPosition() throws Exception {
-		assertThrows(InvalidPinFormatException.class,
-				() -> createAtmAtPinPrompt().checkPin(new char[] {'2', '4', '6', '/', '1'}));
+	private static Stream<Arguments> pinDigitBoundaryCases() {
+		return Stream.of(
+				Arguments.of("rejectsCharacterImmediatelyBelowDigitRange", "/4681", false),
+				Arguments.of("acceptsPinWithDigitAtLowerBoundary", "04681", true),
+				Arguments.of("acceptsPinWithDigitAdjacentToLowerBoundary", "14681", true),
+				Arguments.of("acceptsPinWithDigitAdjacentToUpperBoundary", "84681", true),
+				Arguments.of("acceptsPinWithDigitAtUpperBoundary", "94681", true),
+				Arguments.of("rejectsCharacterImmediatelyAboveDigitRange", ":4681", false));
 	}
 
 	/*
-	 * Supplemental position checks: put invalid boundary characters in positions
-	 * two through five and valid endpoint digits in position five. This checks
-	 * whether the rule applies throughout the PIN, rather than only at position
-	 * one. The five-character invalid samples can be rejected by the current
-	 * implementation's earlier length fault, so those passing assertions are
-	 * masked and do not independently prove the digit checks work.
+	 * Supplemental position checks: vary one character in positions two through
+	 * five, keeping the remaining characters nominal. These checks supplement
+	 * the first-position BVA cases. Five-character invalid samples can be
+	 * rejected by the implementation's earlier length fault, so those passes are
+	 * masked and do not independently prove digit validation.
 	 */
-	@Test
-	public void rejectsCharacterImmediatelyBelowDigitRangeAtFifthPosition() throws Exception {
-		assertThrows(InvalidPinFormatException.class,
-				() -> createAtmAtPinPrompt().checkPin(new char[] {'2', '4', '6', '8', '/'}));
+	@ParameterizedTest(name = "{0}")
+	@MethodSource("pinPositionCases")
+	public void pinPositionChecks(String caseId, String pin, boolean expectedValid)
+			throws InvalidCardNumberException {
+		assertPinResult(pin, expectedValid);
 	}
 
-	@Test
-	public void rejectsCharacterImmediatelyAboveDigitRangeAtFifthPosition() throws Exception {
-		assertThrows(InvalidPinFormatException.class,
-				() -> createAtmAtPinPrompt().checkPin(new char[] {'2', '4', '6', '8', ':'}));
+	private static Stream<Arguments> pinPositionCases() {
+		return Stream.of(
+				Arguments.of("rejectsNonDigitInSecondPinPosition", "2/681", false),
+				Arguments.of("rejectsNonDigitInThirdPinPosition", "24:81", false),
+				Arguments.of("rejectsNonDigitInFourthPinPosition", "246/1", false),
+				Arguments.of("rejectsCharacterImmediatelyBelowDigitRangeAtFifthPosition", "2468/", false),
+				Arguments.of("rejectsCharacterImmediatelyAboveDigitRangeAtFifthPosition", "2468:", false),
+				Arguments.of("acceptsPinWithZeroInFifthPosition", "24680", true),
+				Arguments.of("acceptsPinWithNineInFifthPosition", "24689", true));
 	}
 
-	@Test
-	public void acceptsPinWithZeroInFifthPosition() throws Exception {
-		assertDoesNotThrow(() -> createAtmAtPinPrompt()
-				.checkPin(new char[] {'2', '4', '6', '8', '0'}));
-	}
-
-	@Test
-	public void acceptsPinWithNineInFifthPosition() throws Exception {
-		assertDoesNotThrow(() -> createAtmAtPinPrompt()
-				.checkPin(new char[] {'2', '4', '6', '8', '9'}));
+	private void assertPinResult(String pin, boolean expectedValid)
+			throws InvalidCardNumberException {
+		ATM atm = createAtmAtPinPrompt();
+		if (expectedValid) {
+			assertDoesNotThrow(() -> atm.checkPin(pin.toCharArray()));
+		} else {
+			assertThrows(InvalidPinFormatException.class, () -> atm.checkPin(pin.toCharArray()));
+		}
 	}
 
 	/*
-	 * Lower amount boundary: with only $20 and $50 bills, $20 is the smallest
-	 * positive dispensable amount. $19 and $21 are the adjacent integer values
-	 * and cannot be formed from those bills. $40 is the next dispensable amount
-	 * and $500 is the nominal amount used for the other amount-boundary tests.
+	 * Lower amount boundary: $20 is the smallest positive dispensable amount.
+	 * Robust BVA uses the adjacent integer values $19 and $21, even though
+	 * neither can be dispensed with $20/$50 bills. The nominal $550 is an
+	 * interior amount dispensed as eleven $50 bills and is not divisible by $20.
 	 */
 	@Test
 	public void rejectsAmountOneDollarBelowMinimumDispensableAmount() {
@@ -201,27 +169,20 @@ public class SessionTest {
 	}
 
 	@Test
-	public void acceptsNextDispensableAmountAboveMinimum() {
-		assertDoesNotThrow(() -> session.setAmount(40));
-	}
-
-	@Test
 	public void acceptsNominalWithdrawalAmount() {
-		assertDoesNotThrow(() -> session.setAmount(500));
+		assertDoesNotThrow(() -> session.setAmount(NOMINAL_WITHDRAWAL_AMOUNT));
 	}
 
 	/*
-	 * Upper amount boundary: the simulated account has $5,000 available and a
-	 * $1,000 daily limit, so min(balance, limit) makes $1,000 the upper boundary.
-	 * $990 is the nearest dispensable amount below it (19 x $50 + 2 x $20), and
-	 * $1,010 is the nearest above it (17 x $50 + 8 x $20). The current
-	 * CashValidator rejects $1,010 before a limit could be checked; its passing
-	 * exception assertion is therefore masked. $1,020 (18 x $50 + 6 x $20) is an
-	 * additional dispensable over-limit probe; Session currently accepts it.
+	 * Upper amount boundary: min($5,000 balance, $1,000 daily limit) is $1,000.
+	 * Robust BVA uses $999, $1,000, and $1,001. Neither adjacent value can be
+	 * dispensed using $20/$50 bills, so their expected exceptions do not isolate
+	 * the daily-limit check from cash validation.
 	 */
 	@Test
-	public void acceptsDispensableAmountImmediatelyBelowDailyLimit() {
-		assertDoesNotThrow(() -> session.setAmount(ACCOUNT.maximumWithdrawalBoundary() - 10));
+	public void rejectsAmountOneDollarBelowDailyLimit() {
+		assertThrows(InvalidAmountException.class,
+				() -> session.setAmount(ACCOUNT.maximumWithdrawalBoundary() - 1));
 	}
 
 	@Test
@@ -230,47 +191,9 @@ public class SessionTest {
 	}
 
 	@Test
-	public void rejectsNearestDispensableAmountAboveDailyLimit() {
+	public void rejectsAmountOneDollarAboveDailyLimit() {
 		assertThrows(InvalidAmountException.class,
-				() -> session.setAmount(ACCOUNT.maximumWithdrawalBoundary() + 10));
-	}
-
-	@Test
-	public void rejectsDispensableAmountAboveDailyLimit() {
-		assertThrows(InvalidAmountException.class,
-				() -> session.setAmount(ACCOUNT.maximumWithdrawalBoundary() + 20));
-	}
-
-	/*
-	 * Supplemental amount probes: $50 is one $50 bill, $60 is three $20 bills,
-	 * and $70 is one $50 plus one $20 bill. They check combinations that the
-	 * validator should accept. -$20 should be rejected as negative. The handout
-	 * does not explicitly define a zero withdrawal, so rejecting $0 records the
-	 * team assumption that withdrawals must be positive.
-	 */
-	@Test
-	public void rejectsZeroWithdrawalAmount() {
-		assertThrows(InvalidAmountException.class, () -> session.setAmount(0));
-	}
-
-	@Test
-	public void rejectsNegativeWithdrawalAmount() {
-		assertThrows(InvalidAmountException.class, () -> session.setAmount(-20));
-	}
-
-	@Test
-	public void acceptsMinimumFiftyDollarBillAmount() {
-		assertDoesNotThrow(() -> session.setAmount(50));
-	}
-
-	@Test
-	public void acceptsAmountDispensableAsThreeTwentyDollarBills() {
-		assertDoesNotThrow(() -> session.setAmount(60));
-	}
-
-	@Test
-	public void acceptsAmountDispensableAsOneFiftyAndOneTwentyDollarBill() {
-		assertDoesNotThrow(() -> session.setAmount(70));
+				() -> session.setAmount(ACCOUNT.maximumWithdrawalBoundary() + 1));
 	}
 
 	/*
