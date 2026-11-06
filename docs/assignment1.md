@@ -28,3 +28,22 @@ Robust Worst Case Boundary Value Analysis usually results in 7^n (n=number of va
 Therefore, the number of test cases is equal to # of test values for account balance * # of test values for withdrawal amount * # test values for student status * # test values for withdrawal date, OR 17*7*2*7 = 1666
 
 **Test Case Table**
+See withdrawal_fee_test_cases.csv for the test cases.
+
+**Test Results**
+In total, of the 1666 tests there were 1466 failures and 200 successes. A summarized version of the test results separated into distinct classes based on their suspected faults and the fault localization for each class are as shown:
+
+| Failing test | Suspected fault (file, method, line) | One-line justification |
+|---|---|---|
+| `validInputs`: student, day ∈ {MON, WED, FRI}, any balance | `FeesCalculator.java`, `calculateWithdrawalFee`, line 15 | Spec says a student pays no fees on a weekday, but the weekday branch assigns 0.001 as the percentage, not 0 resulting in an incorrect fee result. |
+| `validInputs`: student, day ∈ {SUN, SAT}, any balance| `FeesCalculator.java`, `calculateWithdrawalFee`, line 13 | Spec says a student pays 0.1% on the weekend, but the result is 0% (expected 1.0, was 0.0): the weekend branch assigns 0.0. Together with the row above, the outcomes of the weekend check on line 12 are swapped. |
+| `validInputs`: non-student, balance ∈ {0, 1, 500, 998, 999}, any valid day | `FeesCalculator.java`, `calculateWithdrawalFee`, line 19 | Spec says 0.3% below $1,000, but the code uses 0.002. Balance 1000 passes, so the line 18 boundary is correct and only the rate is wrong. |
+| `validInputs`: non-student, balance ∈ {5000, 5001}, any valid day | `FeesCalculator.java`, `calculateWithdrawalFee`, line 20 | Spec says no fee from $5,000, but the code's upper threshold is `< 10000.00`. Balances of 50,000 and above pass, so the threshold, not the rate, is wrong. |
+| `invalidInputs`: balance ∈ {-1, 1,000,001} or day ∈ {0, 8}, all combinations | `FeesCalculator.java`, `calculateWithdrawalFee`, method entry (lines 6-8) | The method has no input validation, so no `IllegalArgumentException` is thrown--the expected exception is our assumption. |
+
+
+The JaCoCo coverage statistics are as follows:
+Type	Coverage
+Line	5.9%
+Branch	9.3%
+Method	13.8%
