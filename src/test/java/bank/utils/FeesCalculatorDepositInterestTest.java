@@ -6,10 +6,12 @@ import org.junit.jupiter.api.Test;
 
 /*
  * Deposit Interest Test Cases - Weak Robust Equivalence Class Testing
- * Representative cases for each equivalence class are tested, as well as invalid values.
- * D1 - D8 are valid cases, while D9 and D10 are invalid cases.
- * Tolerance of 0.000000001 is used for floating point comparison.
+ * D1-D8 are specification-derived representative cases.
+ * D9 and D10 are exploratory negative-input tests based on an explicit
+ * assumption because negative-input behavior is not defined by the specification.
+ * A tolerance of 0.000000001 is used for floating-point comparison.
  */
+
 class FeesCalculatorDepositInterestTest {
     private FeesCalculator calculator;
 
@@ -44,7 +46,7 @@ class FeesCalculatorDepositInterestTest {
     // Student, amount <= 50, balance > 5000
     // D3: Amount = 25, Balance = 6000, Student = true
     // Expected fee = 25 * 0.005 = 0.125
-    void d3DepositFeeTestStudentLowAmountHighBalance(){
+    void d3DepositFeeTestStudentLowAmountHighBalance() {
         double fee = calculator.calculateDepositInterest(
             25.00, 6000.00, true
         );
@@ -82,7 +84,7 @@ class FeesCalculatorDepositInterestTest {
         double fee = calculator.calculateDepositInterest(
             500.00, 1000.00, false
         );
-        assertEquals(500.00*0.004, fee, 0.000000001, "D6:Deposit interest should be 0.4% for non-student with amount 500 and balance 1000.");
+        assertEquals(500.00*0.004, fee, 0.000000001, "D6: Deposit interest should be 0.4% for non-student with amount 500 and balance 1000.");
     }
 
     @Test 
@@ -107,7 +109,8 @@ class FeesCalculatorDepositInterestTest {
         assertEquals(100*0.001, fee, 0.000000001, "D8: Deposit interest should be 0.1% for non-student with amount 100 and balance 5000.");
     }
 
-    // ---------- Test for Invalid Values ----------
+    // ---------- Exploratory Negative-Input Tests ----------
+
     @Test
     void d9RejectNegativeDepositAmount(){
         assertThrows(IllegalArgumentException.class,
