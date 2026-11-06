@@ -19,8 +19,13 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 public class SessionTest {
-	// Assignment boundary; Session has no API to configure an account's daily limit.
-	private static final int DAILY_LIMIT = 1000;
+	private static final String CARD = "4000000000000000";
+	private static final String NOMINAL_PIN = "55555";
+	private static final int SIMULATED_AVAILABLE_BALANCE = 5000;
+	private static final int SIMULATED_DAILY_LIMIT = 1000;
+	// Test-only model for deriving boundaries; Session cannot be given account limits.
+	private static final SimulatedAccount ACCOUNT = new SimulatedAccount(
+			SIMULATED_AVAILABLE_BALANCE, SIMULATED_DAILY_LIMIT);
 	private MainPanel mainPanel;
 	private MessageDispatcher dispatcher;
 	private Session session;
@@ -29,11 +34,11 @@ public class SessionTest {
 	public void setUp() {
 		mainPanel = Mockito.mock(MainPanel.class);
 		dispatcher = Mockito.mock(MessageDispatcher.class);
+		Mockito.when(dispatcher.checkCredentials(Mockito.anyString(),
+				Mockito.any(char[].class))).thenReturn(true);
 		session = new Session(mainPanel, dispatcher);
-
-		// Keep amount tests focused on Session.setAmount input validation.
 		SessionState noOpState = currentSession -> {
-			// The test does not perform a bank transaction.
+			// Keep amount checks isolated from transaction processing.
 		};
 		session.setState(noOpState);
 		session.setTransaction(new ATMWithdrawal());
@@ -42,69 +47,97 @@ public class SessionTest {
 
 	@Test
 	public void rejectsPinOneDigitBelowRequiredLength() throws Exception {
-		ATM atm = createAtm();
-
 		assertThrows(InvalidPinFormatException.class,
-				() -> atm.checkPin(new char[] {'1', '2', '3', '4'}));
+				() -> createAtmAtPinPrompt().checkPin(new char[] {'5', '5', '5', '5'}));
 	}
 
 	@Test
 	public void acceptsPinAtRequiredLength() throws Exception {
-		ATM atm = createAtm();
-
-		assertDoesNotThrow(() -> atm.checkPin(new char[] {'1', '2', '3', '4', '5'}));
+		assertDoesNotThrow(() -> createAtmAtPinPrompt().checkPin(NOMINAL_PIN.toCharArray()));
 	}
 
 	@Test
 	public void rejectsPinOneDigitAboveRequiredLength() throws Exception {
-		ATM atm = createAtm();
-
 		assertThrows(InvalidPinFormatException.class,
-				() -> atm.checkPin(new char[] {'1', '2', '3', '4', '5', '6'}));
+				() -> createAtmAtPinPrompt().checkPin(new char[] {'5', '5', '5', '5', '5', '5'}));
 	}
 
 	@Test
 	public void acceptsPinWithDigitAtLowerBoundary() throws Exception {
-		ATM atm = createAtm();
-
-		assertDoesNotThrow(() -> atm.checkPin(new char[] {'0', '1', '2', '3', '4'}));
+		assertDoesNotThrow(() -> createAtmAtPinPrompt()
+				.checkPin(new char[] {'0', '5', '5', '5', '5'}));
 	}
 
 	@Test
 	public void acceptsPinWithDigitAdjacentToLowerBoundary() throws Exception {
-		ATM atm = createAtm();
-
-		assertDoesNotThrow(() -> atm.checkPin(new char[] {'1', '1', '2', '3', '4'}));
+		assertDoesNotThrow(() -> createAtmAtPinPrompt()
+				.checkPin(new char[] {'1', '5', '5', '5', '5'}));
 	}
 
 	@Test
 	public void acceptsPinWithDigitAdjacentToUpperBoundary() throws Exception {
-		ATM atm = createAtm();
-
-		assertDoesNotThrow(() -> atm.checkPin(new char[] {'8', '1', '2', '3', '4'}));
+		assertDoesNotThrow(() -> createAtmAtPinPrompt()
+				.checkPin(new char[] {'8', '5', '5', '5', '5'}));
 	}
 
 	@Test
 	public void acceptsPinWithDigitAtUpperBoundary() throws Exception {
-		ATM atm = createAtm();
-
-		assertDoesNotThrow(() -> atm.checkPin(new char[] {'9', '1', '2', '3', '4'}));
+		assertDoesNotThrow(() -> createAtmAtPinPrompt()
+				.checkPin(new char[] {'9', '5', '5', '5', '5'}));
 	}
 
 	@Test
 	public void rejectsCharacterImmediatelyBelowDigitRange() throws Exception {
-		ATM atm = createAtm();
-
 		assertThrows(InvalidPinFormatException.class,
-				() -> atm.checkPin(new char[] {'/', '1', '2', '3', '4', '5'}));
+				() -> createAtmAtPinPrompt().checkPin(new char[] {'/', '5', '5', '5', '5'}));
 	}
 
 	@Test
 	public void rejectsCharacterImmediatelyAboveDigitRange() throws Exception {
-		ATM atm = createAtm();
-
 		assertThrows(InvalidPinFormatException.class,
-				() -> atm.checkPin(new char[] {':', '1', '2', '3', '4', '5'}));
+				() -> createAtmAtPinPrompt().checkPin(new char[] {':', '5', '5', '5', '5'}));
+	}
+
+	@Test
+	public void rejectsNonDigitInSecondPinPosition() throws Exception {
+		assertThrows(InvalidPinFormatException.class,
+				() -> createAtmAtPinPrompt().checkPin(new char[] {'5', '/', '5', '5', '5'}));
+	}
+
+	@Test
+	public void rejectsNonDigitInThirdPinPosition() throws Exception {
+		assertThrows(InvalidPinFormatException.class,
+				() -> createAtmAtPinPrompt().checkPin(new char[] {'5', '5', ':', '5', '5'}));
+	}
+
+	@Test
+	public void rejectsNonDigitInFourthPinPosition() throws Exception {
+		assertThrows(InvalidPinFormatException.class,
+				() -> createAtmAtPinPrompt().checkPin(new char[] {'5', '5', '5', '/', '5'}));
+	}
+
+	@Test
+	public void rejectsCharacterImmediatelyBelowDigitRangeAtFifthPosition() throws Exception {
+		assertThrows(InvalidPinFormatException.class,
+				() -> createAtmAtPinPrompt().checkPin(new char[] {'5', '5', '5', '5', '/'}));
+	}
+
+	@Test
+	public void rejectsCharacterImmediatelyAboveDigitRangeAtFifthPosition() throws Exception {
+		assertThrows(InvalidPinFormatException.class,
+				() -> createAtmAtPinPrompt().checkPin(new char[] {'5', '5', '5', '5', ':'}));
+	}
+
+	@Test
+	public void acceptsPinWithZeroInFifthPosition() throws Exception {
+		assertDoesNotThrow(() -> createAtmAtPinPrompt()
+				.checkPin(new char[] {'5', '5', '5', '5', '0'}));
+	}
+
+	@Test
+	public void acceptsPinWithNineInFifthPosition() throws Exception {
+		assertDoesNotThrow(() -> createAtmAtPinPrompt()
+				.checkPin(new char[] {'5', '5', '5', '5', '9'}));
 	}
 
 	@Test
@@ -113,23 +146,18 @@ public class SessionTest {
 	}
 
 	@Test
-	public void rejectsNegativeWithdrawalAmount() {
-		assertThrows(InvalidAmountException.class, () -> session.setAmount(-20));
-	}
-
-	@Test
 	public void acceptsMinimumDispensableAmount() {
 		assertDoesNotThrow(() -> session.setAmount(20));
 	}
 
 	@Test
-	public void acceptsAmountDispensableAsThreeTwentyDollarBills() {
-		assertDoesNotThrow(() -> session.setAmount(60));
+	public void rejectsAmountOneDollarAboveMinimumDispensableAmount() {
+		assertThrows(InvalidAmountException.class, () -> session.setAmount(21));
 	}
 
 	@Test
-	public void rejectsAmountOneDollarAboveMinimumDispensableAmount() {
-		assertThrows(InvalidAmountException.class, () -> session.setAmount(21));
+	public void acceptsNextDispensableAmountAboveMinimum() {
+		assertDoesNotThrow(() -> session.setAmount(40));
 	}
 
 	@Test
@@ -139,29 +167,71 @@ public class SessionTest {
 
 	@Test
 	public void acceptsDispensableAmountImmediatelyBelowDailyLimit() {
-		assertDoesNotThrow(() -> session.setAmount(990));
+		assertDoesNotThrow(() -> session.setAmount(ACCOUNT.maximumWithdrawalBoundary() - 10));
 	}
 
 	@Test
 	public void acceptsAmountAtDailyLimit() {
-		assertDoesNotThrow(() -> session.setAmount(DAILY_LIMIT));
+		assertDoesNotThrow(() -> session.setAmount(ACCOUNT.maximumWithdrawalBoundary()));
 	}
 
 	@Test
-	public void rejectsDispensableAmountImmediatelyAboveDailyLimit() {
-		// The assignment calls $1,000 the upper boundary. Treat an over-limit
-		// amount as invalid input; this isolated Session test cannot configure an account.
+	public void rejectsNearestDispensableAmountAboveDailyLimit() {
 		assertThrows(InvalidAmountException.class,
-				() -> session.setAmount(DAILY_LIMIT + 20));
+				() -> session.setAmount(ACCOUNT.maximumWithdrawalBoundary() + 10));
 	}
 
-	private ATM createAtm() throws InvalidCardNumberException {
+	@Test
+	public void rejectsDispensableAmountAboveDailyLimit() {
+		assertThrows(InvalidAmountException.class,
+				() -> session.setAmount(ACCOUNT.maximumWithdrawalBoundary() + 20));
+	}
+
+	@Test
+	public void rejectsZeroWithdrawalAmount() {
+		assertThrows(InvalidAmountException.class, () -> session.setAmount(0));
+	}
+
+	@Test
+	public void rejectsNegativeWithdrawalAmount() {
+		assertThrows(InvalidAmountException.class, () -> session.setAmount(-20));
+	}
+
+	@Test
+	public void acceptsMinimumFiftyDollarBillAmount() {
+		assertDoesNotThrow(() -> session.setAmount(50));
+	}
+
+	@Test
+	public void acceptsAmountDispensableAsThreeTwentyDollarBills() {
+		assertDoesNotThrow(() -> session.setAmount(60));
+	}
+
+	@Test
+	public void acceptsAmountDispensableAsOneFiftyAndOneTwentyDollarBill() {
+		assertDoesNotThrow(() -> session.setAmount(70));
+	}
+
+	private ATM createAtmAtPinPrompt() throws InvalidCardNumberException {
 		ATM atm = new ATM(new FormatChecker(), new CredentialsCheck(dispatcher), dispatcher);
 		atm.setMainPanel(mainPanel);
 		atm.createSession();
-		atm.checkCardNumber("4000000000000000");
-		Mockito.when(dispatcher.checkCredentials(
-				Mockito.anyString(), Mockito.any(char[].class))).thenReturn(true);
+		atm.checkCardNumber(CARD);
 		return atm;
 	}
+
+	private static final class SimulatedAccount {
+		private final int availableBalance;
+		private final int dailyLimit;
+
+		private SimulatedAccount(int availableBalance, int dailyLimit) {
+			this.availableBalance = availableBalance;
+			this.dailyLimit = dailyLimit;
+		}
+
+		private int maximumWithdrawalBoundary() {
+			return Math.min(availableBalance, dailyLimit);
+		}
+	}
+
 }

@@ -68,17 +68,19 @@ Here is the table for each test:
 
 ### 1. Process and assumptions
 
-The ATM Session cases use Robust Worst Case Boundary Value Analysis under the single fault assumption. Each case varies one input characteristic at a time while keeping the other characteristics at nominal values.
+The ATM Session tests use Robust Worst Case Boundary Value Analysis under the single-fault assumption: one input characteristic is varied at a time while the others use nominal values. The model has three characteristics: PIN length, one PIN digit, and withdrawal amount. The nominal inputs are PIN `55555` and withdrawal `$500`.
 
-For PIN format, the specification says a PIN contains exactly five digits, each from `0` through `9`. Length cases use numeric characters. Digit cases use five-character inputs and vary one character at a time at, or immediately around, the digit boundaries. `/` and `:` are the adjacent ASCII characters outside the digit range.
+For weak robust, one-factor-at-a-time BVA, the usual `6n + 1` count is one nominal combination plus six boundary values per input characteristic. PIN length is an exact-length condition (`min = max = 5`), so it has only two distinct non-nominal values: 4 and 6 characters. A PIN digit ranges from `0` through `9`; its six robust boundary values are `/`, `0`, `1`, `8`, `9`, and `:` with the other positions held at `5`. For withdrawal amount, the six selected boundary values are `$19`, `$20`, `$21`, `$990`, `$1,000`, and `$1,010`. This gives `1 + 2 + 6 + 6 = 15` core input combinations. The nominal PIN and nominal withdrawal are asserted in separate JUnit tests to keep the PIN-format and amount paths independently observable. Additional position and denomination probes are listed separately below.
 
-For withdrawals, the console ATM must dispense the amount using `$20` and `$50` bills. `$20` is the smallest positive dispensable amount, and `$1,000` is the specified upper boundary. The nominal amount is `$500`. Because cash-dispensable amounts are discrete, `$990` is used as a dispensable value below the upper boundary and `$1,020` as a dispensable value above it, to distinguish the limit check from cash validation.
+The amount domain is constrained by the console ATM's `$20` and `$50` bills. `$20` is the minimum positive dispensable amount. `$40` is the next dispensable amount above it. Around the `$1,000` upper boundary, `$990` is the nearest dispensable amount below it and `$1,010` is the nearest dispensable amount above it (`17 × $50 + 8 × $20`). `$1,020` is included as an additional over-limit amount that the current denomination validator accepts, so it can expose the missing limit check. The `$1,010` case is expected to be rejected for exceeding the limit, but the current `CashValidator` also rejects it incorrectly, so a passing assertion there does not prove that the limit was checked.
 
-The lower-bound cases are `$19`, `$20`, and `$21`. Additional robust invalid and denomination cases use `-$20` and `$60`: a negative amount should be rejected, while `$60` is dispensable as three `$20` bills. These cases vary only the amount; the selected transaction remains withdrawal.
+Additional amount probes test `$40`, `$50`, `$60`, and `$70` bill combinations, `-$20`, and `$0`. The specification does not explicitly say whether a zero-dollar withdrawal is valid; this test assumes a withdrawal must be positive. PIN digit cases also place invalid characters in positions two through five and valid boundary digits in the fifth position, rather than assuming only the first position matters.
 
-The assignment specifies an account with `$5,000` available and a `$1,000` daily limit. `DBHandler.setBalance()` can set an account balance, but the account schema and code have no daily-limit field or setup path. These tests do not call `setBalance()`; they construct an `ATMWithdrawal` and call `Session.setAmount()` with the assignment’s limit as the expected boundary, while stubbing the session state so no bank transaction is performed. The tests therefore do not create or use the required account and cover only session amount validation.
+PIN format is checked through `ATM.checkPin()`, which invokes `FormatChecker.checkPinFormat()` before calling `Session.addPin()`. `Session.addPin()` stores the PIN and advances the state; it does not validate the format. Amount tests construct a `Session` with an `ATMWithdrawal`, select a Chequing account, and use a no-op state so `Session.setAmount()` validation can be tested without performing a bank transaction. This keeps the amount cases independent of the PIN-format fault, but it does not exercise transaction processing or account balance handling.
 
-For the `$1,020` case, we interpret the specified `$1,000` upper boundary to mean that an over-limit withdrawal amount should be rejected with `InvalidAmountException`, even if it can be dispensed in `$20` and `$50` bills. The handout explicitly associates `InvalidAmountException` with invalid amounts that cannot be dispensed, but does not state the exception or outcome for a cash-dispensable amount above the daily limit. This expected outcome is therefore an assumption for team or TA confirmation. Because the session is tested with a no-op state, the test checks the amount accepted by `Session.setAmount()` and cannot establish the outcome of a bank transaction.
+`SessionTest` defines a test-only `SimulatedAccount` with `$5,000` available and a `$1,000` daily limit. The maximum withdrawal boundary is calculated as `min($5,000, $1,000) = $1,000`, and the tests derive their upper-boundary inputs from that value. This model is not attached to `Session` or stored in the bank database; amount tests still use a no-op state. `DBHandler.setBalance()` can set a stored balance, but these tests do not call it. The application has no daily-limit field or setup path, so the fixture represents the required values for boundary selection but does not exercise an account with them. The database seed PIN is `5555` (four digits); PIN tests use mocked credentials and test PINs so they can check the assignment's five-digit format independently. Instructor guidance is still needed on the missing production daily-limit support.
+
+For `$1,020`, the test expects `InvalidAmountException` because the assignment identifies `$1,000` as the withdrawal upper boundary. This is our interpretation of the exception for a cash-dispensable amount above the daily limit; the handout does not state that outcome explicitly. No production code was changed.
 
 ### 2. Test cases
 
@@ -86,63 +88,87 @@ For the `$1,020` case, we interpret the specified `$1,000` upper boundary to mea
 
 | Test case | Input | Expected result |
 |---|---|---|
-| `rejectsPinOneDigitBelowRequiredLength` | `1234` | Throw `InvalidPinFormatException` |
-| `acceptsPinAtRequiredLength` | `12345` | Accept |
-| `rejectsPinOneDigitAboveRequiredLength` | `123456` | Throw `InvalidPinFormatException` |
-| `acceptsPinWithDigitAtLowerBoundary` | `01234` | Accept |
-| `acceptsPinWithDigitAdjacentToLowerBoundary` | `11234` | Accept |
-| `acceptsPinWithDigitAdjacentToUpperBoundary` | `81234` | Accept |
-| `acceptsPinWithDigitAtUpperBoundary` | `91234` | Accept |
-| `rejectsCharacterImmediatelyBelowDigitRange` | `/12345` | Throw `InvalidPinFormatException` |
-| `rejectsCharacterImmediatelyAboveDigitRange` | `:12345` | Throw `InvalidPinFormatException` |
+| `rejectsPinOneDigitBelowRequiredLength` | `5555` | Throw `InvalidPinFormatException` |
+| `acceptsPinAtRequiredLength` | `55555` | Accept |
+| `rejectsPinOneDigitAboveRequiredLength` | `555555` | Throw `InvalidPinFormatException` |
+| `acceptsPinWithDigitAtLowerBoundary` | `05555` | Accept |
+| `acceptsPinWithDigitAdjacentToLowerBoundary` | `15555` | Accept |
+| `acceptsPinWithDigitAdjacentToUpperBoundary` | `85555` | Accept |
+| `acceptsPinWithDigitAtUpperBoundary` | `95555` | Accept |
+| `rejectsCharacterImmediatelyBelowDigitRange` | `/5555` | Throw `InvalidPinFormatException` |
+| `rejectsCharacterImmediatelyAboveDigitRange` | `:5555` | Throw `InvalidPinFormatException` |
+| `rejectsNonDigitInSecondPinPosition` | `5/555` | Throw `InvalidPinFormatException` |
+| `rejectsNonDigitInThirdPinPosition` | `55:55` | Throw `InvalidPinFormatException` |
+| `rejectsNonDigitInFourthPinPosition` | `555/5` | Throw `InvalidPinFormatException` |
+| `rejectsCharacterImmediatelyBelowDigitRangeAtFifthPosition` | `5555/` | Throw `InvalidPinFormatException` |
+| `rejectsCharacterImmediatelyAboveDigitRangeAtFifthPosition` | `5555:` | Throw `InvalidPinFormatException` |
+| `acceptsPinWithZeroInFifthPosition` | `55550` | Accept |
+| `acceptsPinWithNineInFifthPosition` | `55559` | Accept |
 
 #### Withdrawal amount cases
 
 | Test case | Amount | Expected result |
 |---|---:|---|
 | `rejectsAmountOneDollarBelowMinimumDispensableAmount` | `$19` | Throw `InvalidAmountException` |
-| `rejectsNegativeWithdrawalAmount` | `-$20` | Throw `InvalidAmountException` |
 | `acceptsMinimumDispensableAmount` | `$20` | Accept |
-| `acceptsAmountDispensableAsThreeTwentyDollarBills` | `$60` | Accept |
 | `rejectsAmountOneDollarAboveMinimumDispensableAmount` | `$21` | Throw `InvalidAmountException` |
+| `acceptsNextDispensableAmountAboveMinimum` | `$40` | Accept |
 | `acceptsNominalWithdrawalAmount` | `$500` | Accept |
 | `acceptsDispensableAmountImmediatelyBelowDailyLimit` | `$990` | Accept |
 | `acceptsAmountAtDailyLimit` | `$1,000` | Accept |
-| `rejectsDispensableAmountImmediatelyAboveDailyLimit` | `$1,020` | Throw `InvalidAmountException` |
+| `rejectsNearestDispensableAmountAboveDailyLimit` | `$1,010` | Throw `InvalidAmountException` |
+| `rejectsDispensableAmountAboveDailyLimit` | `$1,020` | Throw `InvalidAmountException` |
+| `rejectsZeroWithdrawalAmount` | `$0` | Throw `InvalidAmountException` (team assumption: withdrawals must be positive) |
+| `rejectsNegativeWithdrawalAmount` | `-$20` | Throw `InvalidAmountException` |
+| `acceptsMinimumFiftyDollarBillAmount` | `$50` | Accept |
+| `acceptsAmountDispensableAsThreeTwentyDollarBills` | `$60` | Accept |
+| `acceptsAmountDispensableAsOneFiftyAndOneTwentyDollarBill` | `$70` | Accept |
 
 #### Test results
 
-Results below are from the run on 2026-11-05 reporting 18 tests, 9 failures, and 9 passes.
+Full-suite run: `mvn -B test`, 2026-11-06. Checkstyle reported zero violations. Maven ran 49 tests: 28 failed and 21 passed. The ATM Session class ran 30 tests: 12 failed and 18 passed. The 16 Transfer Fee failures are from the separate Transfer Fee tests; the table below reports the ATM Session cases only.
 
 | Test case | Observed result | Status / notes |
 |---|---|---|
-| `rejectsPinOneDigitBelowRequiredLength` | Accepted | **Fail.** Four-digit PIN accepted. |
+| `rejectsPinOneDigitBelowRequiredLength` | Accepted | **Fail.** Four-character PIN accepted. |
 | `acceptsPinAtRequiredLength` | Threw `InvalidPinFormatException` | **Fail.** Five-digit PIN rejected. |
 | `rejectsPinOneDigitAboveRequiredLength` | Threw `InvalidPinFormatException` | **Pass.** |
-| `acceptsPinWithDigitAtLowerBoundary` | Threw `InvalidPinFormatException` | **Fail, masked.** The length check rejects the five-character PIN before checking the digit. |
-| `acceptsPinWithDigitAdjacentToLowerBoundary` | Threw `InvalidPinFormatException` | **Fail, masked.** The length check rejects the five-character PIN before checking the digit. |
-| `acceptsPinWithDigitAdjacentToUpperBoundary` | Threw `InvalidPinFormatException` | **Fail, masked.** The length check rejects the five-character PIN before checking the digit. |
-| `acceptsPinWithDigitAtUpperBoundary` | Threw `InvalidPinFormatException` | **Fail, masked.** The length check rejects the five-character PIN before checking the digit. |
-| `rejectsCharacterImmediatelyBelowDigitRange` | Threw `InvalidPinFormatException` | **Pass, masked.** The five-character PIN is rejected by the incorrect length check, so this result does not establish that `/` was checked. |
-| `rejectsCharacterImmediatelyAboveDigitRange` | Threw `InvalidPinFormatException` | **Pass, masked.** The five-character PIN is rejected by the incorrect length check, so this result does not establish that `:` was checked. |
+| `acceptsPinWithDigitAtLowerBoundary` | Threw `InvalidPinFormatException` | **Fail.** Five-character PIN rejected by the length check. |
+| `acceptsPinWithDigitAdjacentToLowerBoundary` | Threw `InvalidPinFormatException` | **Fail.** Five-character PIN rejected by the length check. |
+| `acceptsPinWithDigitAdjacentToUpperBoundary` | Threw `InvalidPinFormatException` | **Fail.** Five-character PIN rejected by the length check. |
+| `acceptsPinWithDigitAtUpperBoundary` | Threw `InvalidPinFormatException` | **Fail.** Five-character PIN rejected by the length check. |
+| `rejectsCharacterImmediatelyBelowDigitRange` | Threw `InvalidPinFormatException` | **Pass, masked.** The five-character PIN is rejected by the length check before `/` is independently checked. |
+| `rejectsCharacterImmediatelyAboveDigitRange` | Threw `InvalidPinFormatException` | **Pass, masked.** The five-character PIN is rejected by the length check before `:` is independently checked. |
+| `rejectsNonDigitInSecondPinPosition` | Threw `InvalidPinFormatException` | **Pass, masked.** Rejection occurs at the length check. |
+| `rejectsNonDigitInThirdPinPosition` | Threw `InvalidPinFormatException` | **Pass, masked.** Rejection occurs at the length check. |
+| `rejectsNonDigitInFourthPinPosition` | Threw `InvalidPinFormatException` | **Pass, masked.** Rejection occurs at the length check. |
+| `rejectsCharacterImmediatelyBelowDigitRangeAtFifthPosition` | Threw `InvalidPinFormatException` | **Pass, masked.** Rejection occurs at the length check. |
+| `rejectsCharacterImmediatelyAboveDigitRangeAtFifthPosition` | Threw `InvalidPinFormatException` | **Pass, masked.** Rejection occurs at the length check. |
+| `acceptsPinWithZeroInFifthPosition` | Threw `InvalidPinFormatException` | **Fail.** Five-character PIN rejected by the length check. |
+| `acceptsPinWithNineInFifthPosition` | Threw `InvalidPinFormatException` | **Fail.** Five-character PIN rejected by the length check. |
 | `rejectsAmountOneDollarBelowMinimumDispensableAmount` | Threw `InvalidAmountException` | **Pass.** |
-| `rejectsNegativeWithdrawalAmount` | Accepted | **Fail.** `CashValidator.validateWithdrawal()` treats `-$20` as valid because its remainder checks reach zero. |
 | `acceptsMinimumDispensableAmount` | Accepted | **Pass.** |
-| `acceptsAmountDispensableAsThreeTwentyDollarBills` | Threw `InvalidAmountException` | **Fail.** `CashValidator.validateWithdrawal()` rejects `$60`, although it can be dispensed as three `$20` bills. |
 | `rejectsAmountOneDollarAboveMinimumDispensableAmount` | Threw `InvalidAmountException` | **Pass.** |
+| `acceptsNextDispensableAmountAboveMinimum` | Accepted | **Pass.** |
 | `acceptsNominalWithdrawalAmount` | Accepted | **Pass.** |
 | `acceptsDispensableAmountImmediatelyBelowDailyLimit` | Accepted | **Pass.** |
 | `acceptsAmountAtDailyLimit` | Accepted | **Pass.** |
-| `rejectsDispensableAmountImmediatelyAboveDailyLimit` | Accepted | **Fail.** `Session.setAmount()` accepts `$1,020` in this test path and does not enforce the `$1,000` upper boundary. |
+| `rejectsNearestDispensableAmountAboveDailyLimit` | Threw `InvalidAmountException` | **Pass, masked.** `CashValidator` rejects `$1,010` even though it can be dispensed; this result does not show that the daily limit was checked. |
+| `rejectsDispensableAmountAboveDailyLimit` | Accepted | **Fail.** `Session.setAmount()` accepts `$1,020` in the isolated no-op-state test; no daily-limit check rejects it. |
+| `rejectsZeroWithdrawalAmount` | Accepted | **Fail under the stated positive-withdrawal assumption.** `CashValidator` accepts zero. |
+| `rejectsNegativeWithdrawalAmount` | Accepted | **Fail.** `CashValidator` accepts `-$20`. |
+| `acceptsMinimumFiftyDollarBillAmount` | Accepted | **Pass.** |
+| `acceptsAmountDispensableAsThreeTwentyDollarBills` | Threw `InvalidAmountException` | **Fail.** `CashValidator` rejects `$60`, although it can be dispensed as three `$20` bills. |
+| `acceptsAmountDispensableAsOneFiftyAndOneTwentyDollarBill` | Accepted | **Pass.** |
 
 #### Fault localization
 
-The failures below are grouped by suspected fault. Copy these entries into the fault-localization table in the PR description as required by the assignment.
+The failures below are grouped by suspected fault. Copy these entries into the phase:tests fault-localization table in the PR description.
 
 | Failing test case(s) | Suspected fault (file, method, condition) | One-sentence justification |
 |---|---|---|
-| `rejectsPinOneDigitBelowRequiredLength`; `acceptsPinAtRequiredLength`; `acceptsPinWithDigitAtLowerBoundary`; `acceptsPinWithDigitAdjacentToLowerBoundary`; `acceptsPinWithDigitAdjacentToUpperBoundary`; `acceptsPinWithDigitAtUpperBoundary` | `src/main/java/atm/utils/FormatChecker.java`, `checkPinFormat()`, line 33: `pin.length == 4` | The implementation accepts four-character PINs and rejects the specified five-character PINs; the digit-boundary failures are masked by this length check. |
-| `rejectsDispensableAmountImmediatelyAboveDailyLimit` | `src/main/java/atm/session/Session.java`, `setAmount()`, withdrawal branch, lines 87–96 | `Session.setAmount()` accepts `$1,020` in this isolated test path without enforcing the specified `$1,000` upper boundary; treating this as `InvalidAmountException` is an assumption because the handout does not specify the over-limit outcome. |
-| `rejectsNegativeWithdrawalAmount` | `src/main/java/atm/utils/CashValidator.java`, `validateWithdrawal()`, lines 20–31 | The remainder checks accept `-$20` because the negative remainder is divisible by `$20`, so `Session.setAmount()` does not throw `InvalidAmountException`. |
-| `acceptsAmountDispensableAsThreeTwentyDollarBills` | `src/main/java/atm/utils/CashValidator.java`, `validateWithdrawal()`, lines 23–27 | The validator rejects `$60` even though it can be dispensed as three `$20` bills. |
+| `rejectsPinOneDigitBelowRequiredLength`; `acceptsPinAtRequiredLength`; `acceptsPinWithDigitAtLowerBoundary`; `acceptsPinWithDigitAdjacentToLowerBoundary`; `acceptsPinWithDigitAdjacentToUpperBoundary`; `acceptsPinWithDigitAtUpperBoundary`; `acceptsPinWithZeroInFifthPosition`; `acceptsPinWithNineInFifthPosition` | `src/main/java/atm/utils/FormatChecker.java`, `checkPinFormat()`, line 33: `pin.length == 4` | The implementation accepts four-character PINs and rejects the required five-character PINs; valid-digit boundary failures are caused by the length check before digit validation. |
+| `rejectsDispensableAmountAboveDailyLimit` | Missing daily-limit check in the `atm.session.Session.setAmount()` withdrawal path | The session accepts `$1,020` even though it exceeds the assignment's `$1,000` upper boundary; `InvalidAmountException` for this limit violation is the documented interpretation pending instructor confirmation. |
+| `rejectsNegativeWithdrawalAmount`; `rejectsZeroWithdrawalAmount` | `src/main/java/atm/utils/CashValidator.java`, `validateWithdrawal()`, missing positive-amount check | The validator returns true for `-$20` and `$0`, so `Session.setAmount()` accepts them; the zero case uses the documented positive-withdrawal assumption. |
+| `acceptsAmountDispensableAsThreeTwentyDollarBills` | `src/main/java/atm/utils/CashValidator.java`, `validateWithdrawal()`, remainder checks | The validator rejects `$60` even though three `$20` bills can dispense it. |
 
