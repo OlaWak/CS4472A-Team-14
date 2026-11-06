@@ -128,7 +128,7 @@ For `$1,020`, the test expects `InvalidAmountException` because the assignment i
 
 Full-suite run: `mvn -B test`, 2026-11-06. Checkstyle reported zero violations. Maven ran 49 tests: 28 failed and 21 passed. The ATM Session class ran 30 tests: 12 failed and 18 passed. The 16 Transfer Fee failures are from the separate Transfer Fee tests; the table below reports the ATM Session cases only.
 
-The latest PR CI output predates the change to the test card and nominal PIN values documented above. That run reported 49 tests overall (21 passed, 28 failed), including 30 ATM Session tests (18 passed, 12 failed), with the case results shown below. The test methods and expected outcomes were unchanged by the data update, but CI must run again on the updated commit before these results are treated as current. The run's JaCoCo coverage is project-wide: 12.0% line, 18.1% branch, and 25.8% method coverage. The 16 failing `TransferFeeDecisionTableTest` cases belong to the separate Transfer Fee target and are not included in this section's fault localization.
+The latest PR CI run, after the test card and nominal PIN values were updated, reported 49 tests overall (21 passed, 28 failed), including 30 ATM Session tests (18 passed, 12 failed). The ATM Session statuses in the table below match that run. Its JaCoCo coverage is project-wide: 12.0% line, 18.1% branch, and 25.8% method coverage. The 16 failing `TransferFeeDecisionTableTest` cases belong to the separate Transfer Fee target and are not included in this section's fault localization.
 
 | Test case | Observed result | Status / notes |
 |---|---|---|
