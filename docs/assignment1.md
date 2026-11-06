@@ -73,3 +73,14 @@ Results below are from the run on 2026-11-05 reporting 18 tests, 9 failures, and
 | `acceptsAmountAtDailyLimit` | Accepted | **Pass.** |
 | `rejectsDispensableAmountImmediatelyAboveDailyLimit` | Accepted | **Fail.** `Session.setAmount()` accepts `$1,020` in this test path and does not enforce the `$1,000` upper boundary. |
 
+#### Fault localization
+
+The failures below are grouped by suspected fault. Copy these entries into the fault-localization table in the PR description as required by the assignment.
+
+| Failing test case(s) | Suspected fault (file, method, condition) | One-sentence justification |
+|---|---|---|
+| `rejectsPinOneDigitBelowRequiredLength`; `acceptsPinAtRequiredLength`; `acceptsPinWithDigitAtLowerBoundary`; `acceptsPinWithDigitAdjacentToLowerBoundary`; `acceptsPinWithDigitAdjacentToUpperBoundary`; `acceptsPinWithDigitAtUpperBoundary` | `src/main/java/atm/utils/FormatChecker.java`, `checkPinFormat()`, line 33: `pin.length == 4` | The implementation accepts four-character PINs and rejects the specified five-character PINs; the digit-boundary failures are masked by this length check. |
+| `rejectsDispensableAmountImmediatelyAboveDailyLimit` | `src/main/java/atm/session/Session.java`, `setAmount()`, withdrawal branch, lines 87–96 | `Session.setAmount()` accepts `$1,020` in this isolated test path without enforcing the specified `$1,000` upper boundary; treating this as `InvalidAmountException` is an assumption because the handout does not specify the over-limit outcome. |
+| `rejectsNegativeWithdrawalAmount` | `src/main/java/atm/utils/CashValidator.java`, `validateWithdrawal()`, lines 20–31 | The remainder checks accept `-$20` because the negative remainder is divisible by `$20`, so `Session.setAmount()` does not throw `InvalidAmountException`. |
+| `acceptsAmountDispensableAsThreeTwentyDollarBills` | `src/main/java/atm/utils/CashValidator.java`, `validateWithdrawal()`, lines 23–27 | The validator rejects `$60` even though it can be dispensed as three `$20` bills. |
+
