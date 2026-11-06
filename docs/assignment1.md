@@ -120,7 +120,7 @@ No production code was changed. The professor clarified that tests should vary o
 
 #### Test results
 
-After applying the instructor's clarification, a targeted local run of `mvn -B -Dtest=atm.session.SessionTest test` ran 24 tests: 14 passed and 10 failed. Checkstyle reported zero violations. The 10 failures are eight PIN cases, the dispensable `$1,020` amount above the daily limit, and the supplemental `$0` case. The earlier full PR CI output was for the previous 23-invocation version: it listed 42 results overall and project JaCoCo coverage of 12.0% line, 18.1% branch, and 25.8% method. Those full-suite totals and coverage are historical; rerun CI after these changes for current PR-wide results. The parameterized cases below are mapped by method-source order because CI displays their method names and invocation indexes rather than their descriptive case IDs.
+After applying the instructor's clarification, the targeted local run of `mvn -B -Dtest=atm.session.SessionTest test` ran 24 tests: 14 passed and 10 failed. Checkstyle reported zero violations. The latest PR CI output also lists 24 Session tests with 14 passed and 10 failed. Across all rows shown in that CI output, there are 43 results: 17 passed and 26 failed. This includes the two passing `ATMTest` cases, one passing withdrawal-fee test, and 16 failing transfer-fee decision-table cases. Project JaCoCo coverage is 12.0% line, 18.1% branch, and 25.8% method. The parameterized cases below are mapped by method-source order because CI displays their method names and invocation indexes rather than their descriptive case IDs.
 
 | Test case | Observed result | Status |
 |---|---|---|
@@ -151,7 +151,7 @@ After applying the instructor's clarification, a targeted local run of `mvn -B -
 
 #### Fault localization
 
-The current local failures include PIN cases and two amount cases. The parameterized invocation indexes below correspond to the ordered method-source rows in `SessionTest`; invalid-character cases pass because the incorrect length check also throws the expected exception, so those passes do not demonstrate correct digit validation. The `$1,020` test expects an exception because the professor confirmed the `$1,000` daily limit is the target; no exception is thrown because the limit is not implemented. The supplemental `$0` test also expects an exception, under the instructor-confirmed assumption that zero is not a withdrawal amount.
+The current PR CI failures for this section include PIN cases and two amount cases. The parameterized invocation indexes below correspond to the ordered method-source rows in `SessionTest`; invalid-character cases pass because the incorrect length check also throws the expected exception, so those passes do not demonstrate correct digit validation. The `$1,020` test expects an exception because the professor confirmed the `$1,000` daily limit is the target; no exception is thrown because the limit is not implemented. The supplemental `$0` test also expects an exception, under the instructor-confirmed assumption that zero is not a withdrawal amount.
 
 | Failing test case(s) | Suspected fault (file, method, condition) | One-sentence justification |
 |---|---|---|
