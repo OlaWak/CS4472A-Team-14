@@ -129,8 +129,8 @@ Maven reported 13 tests, 9 failures, 0 errors, and 0 skipped tests. Ten of the t
 | D6 | 2.00 | 0.00 | Fail |
 | D7 | 0.00 | 0.50 | Fail |
 | D8 | 0.10 | 0.00 | Fail |
-| D9 | Assumed: `IllegalArgumentException` | No exception thrown | Exploratory assumption not satisfied |
-| D10 | Assumed: `IllegalArgumentException` | No exception thrown | Exploratory assumption not satisfied |
+| D9 | Assumed: `IllegalArgumentException` | No exception thrown | Fail, Exploratory assumption not satisfied |
+| D10 | Assumed: `IllegalArgumentException` | No exception thrown | Fail, Exploratory assumption not satisfied |
 
 
 ### Deposit fault localization
