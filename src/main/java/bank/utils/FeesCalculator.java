@@ -77,62 +77,62 @@ public class FeesCalculator {
 		double feePercentage;
 		// Check if student
 		if (student) {
-			if (amount < 100.00) {
-				if (fromAccountBalance < 1000.00) {
+			if (amount < 200.00) {
+				if (fromAccountBalance < 2000.00) {
 					if (toAccountBalance < 1000.00) {
-						feePercentage = 0.01;
+						feePercentage = 0.001;
 					} else {
-						feePercentage = 0.005;
+						feePercentage = 0.0005;
 					}
 				} else {
 					if (toAccountBalance < 1000.00) {
-						feePercentage = 0.05;
+						feePercentage = 0.0005;
 					} else {
-						feePercentage = 0.025;
+						feePercentage = 0.00025;
 					}
 				}
 			} else {
-				if (fromAccountBalance < 1000.00) {
+				if (fromAccountBalance < 2000.00) {
 					if (toAccountBalance < 1000.00) {
-						feePercentage = 0.005;
+						feePercentage = 0.0005;
 					} else {
-						feePercentage = 0.0025;
+						feePercentage = 0.00025;
 					}
 				} else {
 					if (toAccountBalance < 1000.00) {
-						feePercentage = 0.025;
+						feePercentage = 0.0025;
 					} else {
-						feePercentage = 0.0125;
+						feePercentage = 0.00125;
 					}
 				}
 			}
 		} else {
 			if (amount < 100.00) {
-				if (fromAccountBalance < 1000.00) {
-					if (toAccountBalance < 1000.00) {
-						feePercentage = 0.02;
+				if (fromAccountBalance < 4000.00) {
+					if (toAccountBalance < 2000.00) {
+						feePercentage = 0.002;
 					} else {
-						feePercentage = 0.01;
+						feePercentage = 0.001;
 					}
 				} else {
-					if (toAccountBalance < 1000.00) {
-						feePercentage = 0.1;
-					} else {
-						feePercentage = 0.05;
-					}
-				}
-			} else {
-				if (fromAccountBalance < 1000.00) {
-					if (toAccountBalance < 1000.00) {
+					if (toAccountBalance < 2000.00) {
 						feePercentage = 0.01;
 					} else {
 						feePercentage = 0.005;
 					}
+				}
+			} else {
+				if (fromAccountBalance < 2000.00) {
+					if (toAccountBalance < 1000.00) {
+						feePercentage = 0.002;
+					} else {
+						feePercentage = 0.001;
+					}
 				} else {
 					if (toAccountBalance < 1000.00) {
-						feePercentage = 0.05;
+						feePercentage = 0.005;
 					} else {
-						feePercentage = 0.055;
+						feePercentage = 0.0025;
 					}
 				}
 			}
