@@ -96,7 +96,7 @@ public class SessionTest {
 		ATM atm = createAtm();
 
 		assertThrows(InvalidPinFormatException.class,
-				() -> atm.checkPin(new char[] {'/', '1', '2', '3', '4'}));
+				() -> atm.checkPin(new char[] {'/', '1', '2', '3', '4', '5'}));
 	}
 
 	@Test
@@ -104,7 +104,7 @@ public class SessionTest {
 		ATM atm = createAtm();
 
 		assertThrows(InvalidPinFormatException.class,
-				() -> atm.checkPin(new char[] {':', '1', '2', '3', '4'}));
+				() -> atm.checkPin(new char[] {':', '1', '2', '3', '4', '5'}));
 	}
 
 	@Test

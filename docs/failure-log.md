@@ -18,4 +18,5 @@ This log is retained for use in Assignment 3. Times are rough estimates based on
 | 2026-11-03 21:00 | 4 tests, 3 failures; Maven reported 7.120 seconds | Grouped assertions made some PIN results inconclusive. |
 | 2026-11-03 21:12 | 16 tests, 7 failures, 9 passes; Maven reported 3.919 seconds | Cases were split into independent JUnit tests. This run is the source of the result table in `assignment1.md`. |
 | 2026-11-05 21:29 | 18 tests, 9 failures, 9 passes; Maven reported 5.011 seconds | Added negative and valid mixed-bill amount cases; this run is the current source of the result table in `assignment1.md`. Checkstyle reported zero violations. |
+| 2026-11-05 22:54 | 18 tests, 9 failures, 9 passes; Maven reported 4.456 seconds | Changed the adjacent non-digit PIN cases to five characters so the test inputs vary the digit character without also using the wrong PIN length. The failure set was unchanged; Checkstyle reported zero violations. |
 

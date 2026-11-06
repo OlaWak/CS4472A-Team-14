@@ -31,8 +31,8 @@ For the `$1,020` case, we interpret the specified `$1,000` upper boundary to mea
 | `acceptsPinWithDigitAdjacentToLowerBoundary` | `11234` | Accept |
 | `acceptsPinWithDigitAdjacentToUpperBoundary` | `81234` | Accept |
 | `acceptsPinWithDigitAtUpperBoundary` | `91234` | Accept |
-| `rejectsCharacterImmediatelyBelowDigitRange` | `/1234` | Throw `InvalidPinFormatException` |
-| `rejectsCharacterImmediatelyAboveDigitRange` | `:1234` | Throw `InvalidPinFormatException` |
+| `rejectsCharacterImmediatelyBelowDigitRange` | `/12345` | Throw `InvalidPinFormatException` |
+| `rejectsCharacterImmediatelyAboveDigitRange` | `:12345` | Throw `InvalidPinFormatException` |
 
 #### Withdrawal amount cases
 
@@ -61,8 +61,8 @@ Results below are from the run on 2026-11-05 reporting 18 tests, 9 failures, and
 | `acceptsPinWithDigitAdjacentToLowerBoundary` | Threw `InvalidPinFormatException` | **Fail, masked.** The length check rejects the five-character PIN before checking the digit. |
 | `acceptsPinWithDigitAdjacentToUpperBoundary` | Threw `InvalidPinFormatException` | **Fail, masked.** The length check rejects the five-character PIN before checking the digit. |
 | `acceptsPinWithDigitAtUpperBoundary` | Threw `InvalidPinFormatException` | **Fail, masked.** The length check rejects the five-character PIN before checking the digit. |
-| `rejectsCharacterImmediatelyBelowDigitRange` | Threw `InvalidPinFormatException` | **Pass, masked.** Rejection may come from the length check; this does not establish that `/` was checked. |
-| `rejectsCharacterImmediatelyAboveDigitRange` | Threw `InvalidPinFormatException` | **Pass, masked.** Rejection may come from the length check; this does not establish that `:` was checked. |
+| `rejectsCharacterImmediatelyBelowDigitRange` | Threw `InvalidPinFormatException` | **Pass, masked.** The five-character PIN is rejected by the incorrect length check, so this result does not establish that `/` was checked. |
+| `rejectsCharacterImmediatelyAboveDigitRange` | Threw `InvalidPinFormatException` | **Pass, masked.** The five-character PIN is rejected by the incorrect length check, so this result does not establish that `:` was checked. |
 | `rejectsAmountOneDollarBelowMinimumDispensableAmount` | Threw `InvalidAmountException` | **Pass.** |
 | `rejectsNegativeWithdrawalAmount` | Accepted | **Fail.** `CashValidator.validateWithdrawal()` treats `-$20` as valid because its remainder checks reach zero. |
 | `acceptsMinimumDispensableAmount` | Accepted | **Pass.** |
