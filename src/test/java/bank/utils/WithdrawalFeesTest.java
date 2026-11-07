@@ -13,20 +13,19 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Robust worst-case boundary value analysis for Withdrawal Fee
  * Assumptions:
- *   - Balance domain: [0.00, 1,000,000.00], arbitrary upper limit for the purposes of testing as this was unspecified
+ *   - Balance cannot be negative so the lowest balance is 0.00. No upper limit is needed.
  *   - Amount domain:  [1.00, 1,000,000.00], arbitrary limits for the purposes of testing as these were unspecified
  *   - Balance and amount resolution: $1.00
  *
  * Input variables and their robust BVA values:
- *   balance (17): min-/min/min+/nominal/max-/max/max+ for each of the 3 fee classes,
- *                 duplicates removed (15 valid, 2 invalid)
+ *   balance (10): the 7 robust values around the middle fee class [1000, 4999] (999, 1000, 1001, 3000,
+ *                 4998, 4999, 5000), so that the two boundaries in the logic ($1,000 and $5,000) are
+ *                 each tested, plus -1, 0 and 5001 (9 valid, 1 invalid)
  *   amount   (7): min-/min/min+/nominal/max-/max/max+ (5 valid, 2 invalid)
- *   dayOfWeek(7): 0, 1, 2, 4, 6, 7, 8 (5 valid, 2 invalid)
+ *   weekday  (2): true / false 
  *   student  (2): true / false
  *
- * Worst-case product: 17 x 7 x 7 x 2 = 1666 combinations
- *   - 15 x 5 x 5 x 2 = 750 with all-valid inputs     -> expect the fee from the spec
- *   - 916 with at least one invalid input            -> expect IllegalArgumentException (assumed; spec is silent)
+ * Worst-case product: 10 x 7 x 2 x 2 = 280 combinations
  */
 class WithdrawalFeesTest {
 
