@@ -40,6 +40,9 @@ public class SessionTest {
 	// Assignment account values used to calculate the withdrawal boundary.
 	private static final int SIMULATED_AVAILABLE_BALANCE = 5000;
 	private static final int SIMULATED_DAILY_LIMIT = 1000;
+	// Closest bill-dispensable withdrawal amounts below and above the limit.
+	private static final int DISPENSABLE_AMOUNT_BELOW_LIMIT = 990;
+	private static final int DISPENSABLE_AMOUNT_ABOVE_LIMIT = 1020;
 	// This test-only model is not connected to Session or the bank database.
 	private static final SimulatedAccount ACCOUNT = new SimulatedAccount(
 			SIMULATED_AVAILABLE_BALANCE, SIMULATED_DAILY_LIMIT);
@@ -168,6 +171,15 @@ public class SessionTest {
 		assertThrows(InvalidAmountException.class, () -> session.setAmount(21));
 	}
 
+	/**
+	 * Zero is not a withdrawal amount. This is a supplemental invalid-input
+	 * probe; it is outside the core boundary set around the minimum of $20.
+	 */
+	@Test
+	public void rejectsZeroWithdrawalAmount() {
+		assertThrows(InvalidAmountException.class, () -> session.setAmount(0));
+	}
+
 	@Test
 	public void acceptsNominalWithdrawalAmount() {
 		assertDoesNotThrow(() -> session.setAmount(NOMINAL_WITHDRAWAL_AMOUNT));
@@ -175,14 +187,14 @@ public class SessionTest {
 
 	/*
 	 * Upper amount boundary: min($5,000 balance, $1,000 daily limit) is $1,000.
-	 * Robust BVA uses $999, $1,000, and $1,001. Neither adjacent value can be
-	 * dispensed using $20/$50 bills, so their expected exceptions do not isolate
-	 * the daily-limit check from cash validation.
+	 * Following the instructor's guidance, use the nearest bill-dispensable
+	 * values around the limit: $990 below, $1,000 at, and $1,020 above. This
+	 * keeps cash denomination valid so the above-limit test isolates the missing
+	 * daily-limit check.
 	 */
 	@Test
-	public void rejectsAmountOneDollarBelowDailyLimit() {
-		assertThrows(InvalidAmountException.class,
-				() -> session.setAmount(ACCOUNT.maximumWithdrawalBoundary() - 1));
+	public void acceptsNearestDispensableAmountBelowDailyLimit() {
+		assertDoesNotThrow(() -> session.setAmount(DISPENSABLE_AMOUNT_BELOW_LIMIT));
 	}
 
 	@Test
@@ -191,9 +203,9 @@ public class SessionTest {
 	}
 
 	@Test
-	public void rejectsAmountOneDollarAboveDailyLimit() {
+	public void rejectsNearestDispensableAmountAboveDailyLimit() {
 		assertThrows(InvalidAmountException.class,
-				() -> session.setAmount(ACCOUNT.maximumWithdrawalBoundary() + 1));
+				() -> session.setAmount(DISPENSABLE_AMOUNT_ABOVE_LIMIT));
 	}
 
 	/*
