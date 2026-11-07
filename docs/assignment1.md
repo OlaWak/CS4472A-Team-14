@@ -328,6 +328,6 @@ $1,000,000.
 
 The JaCoCo coverage statistics are as follows:
 Type	Coverage
-Line	5.9%
-Branch	9.3%
+Line	5.8%
+Branch	8.2%
 Method	13.8%
